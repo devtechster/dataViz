@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>US Map with Suicide Data</title>
+  
+  <!-- Load D3.js -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  
+  <!-- Use the older topojson library instead of topojson-client -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+</head>
+<body>
+  <div id="map-container"></div>
+  <script>
+    // Load the CSV and TopoJSON files
+    d3.csv("sucide-x.csv").then(data => {
+      data.forEach(d => {
+        d.rate = +d.rate;  // Convert the rate to a number
+      });
+
+      d3.json("counties-albers-10m.json").then(us => {
+        createMap(data, us); // Call the map creation function
+      });
+    });
+
+    function createMap(data, us) {
+      // Check if topojson is loaded correctly
+      if (typeof topojson === "undefined") {
+        console.error("TopoJSON library is not loaded correctly.");
+        return;
+      }
+
+      // New custom color scale for suicide rates (from 1% to 10%)
+      const color = d3.scaleQuantize([1, 10], d3.schemeRdBu[9]);  // Red-Blue color scale (9 shades)
+      const path = d3.geoPath();
+
+      // Map the CSV data to a Map for easy lookup (county FIPS -> suicide rate)
+      const valuemap = new Map(data.map(d => [d.id, d.rate]));
+
+      // Parse the TopoJSON data
+      const counties = topojson.feature(us, us.objects.counties);
+      const states = topojson.feature(us, us.objects.states);
+      const statemap = new Map(states.features.map(d => [d.id, d]));
+      const statemesh = topojson.mesh(us, us.objects.states, (a, b) => a !== b);
+
+      // Create the SVG container
+      const svg = d3.create("svg")
+        .attr("width", 975)
+        .attr("height", 610)
+        .attr("viewBox", [0, 0, 975, 610])
+        .attr("style", "max-width: 100%; height: auto;");
+
+      // Add the manually created color legend
+      createColorLegend(svg, color);
+
+      // Draw the counties on the map
+      svg.append("g")
+        .selectAll("path")
+        .data(counties.features)
+        .join("path")
+        .attr("fill", d => color(valuemap.get(d.id))) // Set color based on suicide rate
+        .attr("d", path)
+        .append("title")
+        .text(d => `${d.properties.name}, ${statemap.get(d.id.slice(0, 2)).properties.name}\n${valuemap.get(d.id)}%`);
+
+      // Draw the state borders
+      svg.append("path")
+        .datum(statemesh)
+        .attr("fill", "none")
+        .attr("stroke", "white")
+        .attr("stroke-linejoin", "round")
+        .attr("d", path);
+
+      // Append the SVG to the body
+      document.getElementById("map-container").appendChild(svg.node());
+    }
+
+    // Function to manually create the color legend
+    function createColorLegend(svg, color) {
+      const legendWidth = 260;
+      const legendHeight = 10;
+
+      const legend = svg.append("g")
+        .attr("transform", "translate(610,20)");
+
+      // Create a gradient for the legend
+      const gradient = legend.append("defs")
+        .append("linearGradient")
+        .attr("id", "gradient")
+        .attr("x1", "0%")
+        .attr("x2", "100%")
+        .attr("y1", "0%")
+        .attr("y2", "0%");
+
+      gradient.selectAll("stop")
+        .data(color.range())
+        .enter().append("stop")
+        .attr("offset", (d, i) => `${(i / (color.range().length - 1)) * 100}%`)
+        .attr("stop-color", d => d);
+
+      // Draw the legend rectangle
+      legend.append("rect")
+        .attr("width", legendWidth)
+        .attr("height", legendHeight)
+        .style("fill", "url(#gradient)");
+
+      // Add a label to the legend
+      legend.append("text")
+        .attr("x", legendWidth / 2)
+        .attr("y", legendHeight + 20)
+        .attr("text-anchor", "middle")
+        .style("font-size", "14px")
+        .text("<------low [ Suicide Rate (%) ] high------>");
+    }
+  </script>
+</body>
+</html>
