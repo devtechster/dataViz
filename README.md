@@ -5,7 +5,7 @@ Visualization of suicide rates in the United States using D3.js on data generate
 ## **Prompt Used**  
 Generate a random CSV with columns: `id`, `state`, `county`, `rate (suicide)`, containing U.S. states and counties, structured statewise (Alabama, Florida, etc.).  
 
----
+## Output here :https://devtechster.github.io/dataViz/Sucide%20data%20vizualization%20project/index.html
 
 ## **Overview of Files**  
 
